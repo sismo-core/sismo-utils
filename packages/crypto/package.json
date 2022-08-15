@@ -12,9 +12,11 @@
     "build": "rollup -c"
   },
   "dependencies": {
+    "blake-hash": "^2.0.0",
     "circomlib": "^2.0.3",
     "circomlibjs": "^0.1.2",
-    "ethers": "^5.6.1"
+    "ethers": "^5.6.1",
+    "ffjavascript": "^0.2.55"
   },
   "files": [
     "lib"

@@ -1,21 +1,9 @@
-// @ts-ignore
 // Highly inspired from https://github.com/iden3/circomlibjs/blob/main/src/eddsa.js
 import { Scalar } from "ffjavascript";
-import { BabyJub } from "./babyjub";
+import { BabyJub } from "../babyJub";
 import createBlakeHash from "blake-hash";
-import { buildPoseidon, getPoseidonFiniteField } from "./poseidon";
-import { Point } from "./point";
-
-let eddsa: EdDSA;
-
-export async function buildEddsa() {
-  const poseidon = await buildPoseidon();
-  const field = await getPoseidonFiniteField();
-
-  const babyJub = new BabyJub(field);
-  if (!eddsa) eddsa = new EdDSA(babyJub, poseidon);
-  return eddsa;
-}
+import { Point } from "../point";
+export * from "./build";
 
 export class EdDSA {
   babyJub: BabyJub;

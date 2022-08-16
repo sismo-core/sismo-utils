@@ -1,18 +1,8 @@
-// @ts-ignore
 // Highly inspired from https://github.com/iden3/circomlibjs/blob/main/src/babyjub.js
-import { getCurveFromName, Scalar } from "ffjavascript";
-import { FiniteField } from "./field";
-import { Point } from "./point";
-
-let babyJub: BabyJub;
-
-export async function buildBabyjub() {
-  if (!babyJub) {
-    const bn128 = await getCurveFromName("bn128", true);
-    babyJub = new BabyJub(bn128.Fr);
-  }
-  return babyJub;
-}
+import { Scalar } from "ffjavascript";
+import { FiniteField } from "../field";
+import { Point } from "../point";
+export * from "./build";
 
 export class BabyJub {
   F: FiniteField;

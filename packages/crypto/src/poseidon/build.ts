@@ -1,7 +1,7 @@
 // @ts-ignore
 import { buildPoseidon as build } from "circomlibjs";
 import { BigNumber, BigNumberish } from "ethers";
-import { FiniteField } from "./field";
+import { FiniteField } from "../field";
 
 export type Poseidon = (inputs: any[]) => BigNumber;
 

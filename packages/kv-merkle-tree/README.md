@@ -31,6 +31,13 @@ Merkle tree used in the [Sismo Hydra s1 proving scheme](https://github.com/sismo
 Find [here](https://accounts-registry-tree.docs.sismo.io) more informations on how KV Merkle trees are used for the Sismo Protocol.
 
 
+## Install
+
+```bash
+yarn add @sismo-core/kv-merkle-tree
+```
+
+
 ## Generate your Merkle tree
 
 ### From data
@@ -42,6 +49,8 @@ In the default beaviour this will create a tree where the leaves will be hash(ke
 **For example** if we take the use case of an airdrop, this could allow you to store the amount of token (the value) associated to a user Ethereum account (the key) in the Merkle tree.
 
 ```typescript
+import { KVMerkleTree } from "@sismo-core/kv-merkle-tree";
+
 const merkleTree = new KVMerkleTree({
   "0xa76f290c490c70f2d816d286efe47fd64a35800a": 1,
   "0x0085560b24769daa4ed057f1b2ae40746aa9aab6": 1,

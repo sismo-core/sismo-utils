@@ -10,7 +10,7 @@ describe("Merkle tree lib", () => {
   let accountMerkleTree: KVMerkleTree;
   let merkleTreeRoot: BigNumber;
   let account: string;
-  let dataMerkleTree: MerkleTreeData;
+  let dataMerkleTreeFull: MerkleTreeData;
   let fromLeavesMerkleTree: KVMerkleTree;
   let merklePath: MerklePath;
   let leaf: string;
@@ -21,7 +21,7 @@ describe("Merkle tree lib", () => {
     beforeAll(async () => {
       poseidon = await buildPoseidon();
   
-      dataMerkleTree = {
+      dataMerkleTreeFull = {
         "0xa76f290c490c70f2d816d286efe47fd64a35800b": 1,
         "0x0085560b24769dac4ed057f1b2ae40746aa9aab6": 1,
         "0x0294350d7cf2c145446358b6461c1610927b3a87": 1,
@@ -40,7 +40,7 @@ describe("Merkle tree lib", () => {
         "0x8867c12738f4ca3b530afe7efc7ac4ee1d286cbc": 1
       };
   
-      accountMerkleTree = new KVMerkleTree(dataMerkleTree, poseidon);
+      accountMerkleTree = new KVMerkleTree(dataMerkleTreeFull, poseidon);
 
       account = "0xf61cabba1e6fc166a66bca0fcaa83762edb6d4bd";
     })
@@ -101,20 +101,20 @@ describe("Merkle tree lib", () => {
     })
 
     it('Should force the height of the Merkle tree', async () => {
-      const merkleTree = new KVMerkleTree(dataMerkleTree, poseidon, 20);
+      const merkleTree = new KVMerkleTree(dataMerkleTreeFull, poseidon, 20);
       expect(merkleTree.getHeight()).to.equals(20);
     });
 
     it('Should throw when trying to generate a Merkle tree without hash function.', async () => {
       try {
-        new KVMerkleTree(dataMerkleTree);
+        new KVMerkleTree(dataMerkleTreeFull);
       } catch (e: any) {
         expect(e.message).to.have.string("Must define an hash function.");
       }
     });
 
     it('Should not hash the leaves', async () => {
-      const merkleTree = new KVMerkleTree(dataMerkleTree, poseidon, null, false);
+      const merkleTree = new KVMerkleTree(dataMerkleTreeFull, poseidon, null, false);
       const leaf = "0xf61cabba1e6fc166a66bca0fcaa83762edb6d4bd" + "1";
       const merklePath = merkleTree.getMerklePathFromLeaf(leaf);
       expect(merklePath.elements).to.deep.equal([
@@ -146,6 +146,7 @@ describe("Merkle tree lib", () => {
         BigNumber.from("0x276b4af9833d7147146fb55cf3f472e1b341c54f5ed998b1a5bf74e4268cd189")
       ]);
     })
+
   })
 
   describe("Merkle tree from leaves", () => {
@@ -259,6 +260,7 @@ describe("Merkle tree lib", () => {
     })
   })
 
+
   describe("Merkle tree Errors", () => {
     it('Should throw when trying to get Merkle path from incorrect key', async () => {
       try {
@@ -303,4 +305,193 @@ describe("Merkle tree lib", () => {
       }
     })
   })
+
+
+  describe("Merkle tree optimized formatting", () => {
+    const dataMerkleTreeBalanced = {
+      "0xa76f290c490c70f2d816d286efe47fd64a35800b": 1,
+      "0x0085560b24769dac4ed057f1b2ae40746aa9aab6": 1,
+      "0x0294350d7cf2c145446358b6461c1610927b3a87": 1,
+      "0x4f9c798553d207536b79e886b54f169264a7a155": 1,
+      "0xa1b04c9cbb449d13c4fc29c7e6be1f810e6f35e9": 1,
+      "0xad9fbd38281f615e7df3def2aad18935a9e0ffee": 1,
+      "0x0783094aadfb8ae9915fd712d28664c8d7d26afa": 1,
+      "0xe860947813c207abf9bf6722c49cda515d24971a": 1,
+      "0x8bffc896d42f07776561a5814d6e4240950d6d3a": 1,
+      "0x4a9a2f31e2009045950df5aab36950609de93c78": 1,
+      "0x8ab1760889f26cbbf33a75fd2cf1696bfccdc9e6": 1,
+      "0xf61cabba1e6fc166a66bca0fcaa83762edb6d4bd": 1,
+      "0x97d0bc262dfc2fbe2e6c62883a669e765fe3d83e": 1,
+      "0x74184bff3cf29e82e4d8cb3b7f1d5a89fdd0eb15": 1,
+      "0x26bbec292e5080ecfd36f38ff1619ff35826b113": 1,
+      "0x8867c12738f4ca3b530afe7efc7ac4ee1d286cbc": 1
+    };
+
+    const dataMerkleTreeUnbalanced = {
+      "0xa76f290c490c70f2d816d286efe47fd64a35800b": 1,
+      "0x0085560b24769dac4ed057f1b2ae40746aa9aab6": 1,
+      "0x0294350d7cf2c145446358b6461c1610927b3a87": 1,
+      "0x4f9c798553d207536b79e886b54f169264a7a155": 1,
+      "0xa1b04c9cbb449d13c4fc29c7e6be1f810e6f35e9": 1,
+      "0xad9fbd38281f615e7df3def2aad18935a9e0ffee": 1,
+      "0x0783094aadfb8ae9915fd712d28664c8d7d26afa": 1,
+      "0xe860947813c207abf9bf6722c49cda515d24971a": 1,
+      "0x8bffc896d42f07776561a5814d6e4240950d6d3a": 1,
+    };
+
+    it('Should export the merkle tree as TreeFormatV1', async () => {
+      const testMerkleTree = new KVMerkleTree(dataMerkleTreeBalanced, poseidon);
+      expect(testMerkleTree.toTreeOptimizedFormatV1()).to.deep.equal(
+        [
+          [
+            '0x08f2a363ab37497f7c4303414c0a2c8465cd83e0a96686d2379b6f2c6452b5b1'
+          ],
+          [
+            '0x276b4af9833d7147146fb55cf3f472e1b341c54f5ed998b1a5bf74e4268cd189',
+            '0x25c7868be1d03408d60525422db048e22fbff5a22419037f435f766a54a6f4a6'
+          ],
+          [
+            '0x15ef3d5b6527da67adf7a30d178927860dabc8a76cd840b92d92b09b0af0f561',
+            '0x152cf5dfbf5170e2e9509c6af23f634fa033a2fab132e9e94107a38e41411126',
+            '0x0abf6ae745d8c81b52764118d086a94f33df20477133890e2a016fec4cd61de5',
+            '0x1b50eaf3a456a813d0de9e77cba00b2cfa92d1160f75eb3ff2775c845ddbed20'
+          ],
+          [
+            '0x18ffd671bada5975dd7bee6ee7137080eaff4d72b403a6c2a80151784fe42844',
+            '0x0a9447a22b86b715b161fee505fb6ca01844306f91088a362b1b421457fc4527',
+            '0x0e450497e3990d28a13cd435c7e58f1c8ce56d251eec9d0a83a69f7341858391',
+            '0x28eda956ff99450b484fdaa7dbf4b51a7c343d9ee632689a451260f15a93e401',
+            '0x2e46508bf4c634a18ee73fcf248b4c4fae790b3263f999c0ed28c7224d3623b4',
+            '0x29017ff1dba6f10319555f0a0373fe89ff5775e5460e02da1e4f7b8a7f59b3ef',
+            '0x175bfd6ee5b96a9ad13534f83aca51e52f6d712fc6990f19211b6c5503952f19',
+            '0x08556ba52d6895a9d7093a63cde646727f561c117a59d4e6513e17554fb18e44'
+          ],
+          [
+            '0x1399c190aeeddc5d8b2242ab17f97b42631bb0b7877e92b92c3be2ec5685a6a1',
+            '0x0928369eb910e972be21ce00310d5d3544718bb02979f49d13b704759f2d888e',
+            '0x086ead858855392bb66e138a5bb841e85aa2bae6cc4feacd41ea1c63c7ae173f',
+            '0x2678dfe108482a522d503d5359bede1b66c76dbd64d67c3d2900af5255159eac',
+            '0x193657a44557ca99dbc46fc5aecdaf44605f4dcefadf5e8da2adc1a0efa61e75',
+            '0x128c8677ec7439aee8e2f14dbfe82b814387efba198e555d107dc2e303bfd545',
+            '0x26cfc9854f70c932cb706b9c43b55da689cf51b03a7d25276c6d52c60a6458a3',
+            '0x08879f2a0d07e6924811d836069701ad94544267c2fbce63d2c078d39d57b2bb',
+            '0x20a6bfcd70ca3f6aa5990da8c7e0f8124db54c975dd44a6e86d0035e3ac9c11e',
+            '0x1a378d5988e6dc1c7ade580ce5c0277ba14a1a4f4e4ffd89af3944c41d6027b2',
+            '0x07609bd8dafb73960a4af87a610d5599056267430ffc1446bad5ff6d30e0f0d7',
+            '0x0b7a27b02df7b066ca2c682cbe126c9b47a7d42b87a85ada8e566e1b438e005f',
+            '0x1bc32bca26008b23a2aa1b5f1072c4b81f78f4e0a742609b659d3a164eb79432',
+            '0x2c92323865950121152a842f01317cb7ea351bc5072d633437d5eceb1b59c827',
+            '0x0d054608ed1d345a703aeeb249862f7724594fe1ea4c5c5e78a4cdebbbb59ef3',
+            '0x0bbef709e007ce1483bb7a48b678ab8d31dd9d27a16f22fc99a74550ec5c280f'
+          ],
+          [
+            "0xa76f290c490c70f2d816d286efe47fd64a35800b#0x01",
+            "0x0085560b24769dac4ed057f1b2ae40746aa9aab6#0x01",
+            "0x0294350d7cf2c145446358b6461c1610927b3a87#0x01",
+            "0x4f9c798553d207536b79e886b54f169264a7a155#0x01",
+            "0xa1b04c9cbb449d13c4fc29c7e6be1f810e6f35e9#0x01",
+            "0xad9fbd38281f615e7df3def2aad18935a9e0ffee#0x01",
+            "0x0783094aadfb8ae9915fd712d28664c8d7d26afa#0x01",
+            "0xe860947813c207abf9bf6722c49cda515d24971a#0x01",
+            "0x8bffc896d42f07776561a5814d6e4240950d6d3a#0x01",
+            "0x4a9a2f31e2009045950df5aab36950609de93c78#0x01",
+            "0x8ab1760889f26cbbf33a75fd2cf1696bfccdc9e6#0x01",
+            "0xf61cabba1e6fc166a66bca0fcaa83762edb6d4bd#0x01",
+            "0x97d0bc262dfc2fbe2e6c62883a669e765fe3d83e#0x01",
+            "0x74184bff3cf29e82e4d8cb3b7f1d5a89fdd0eb15#0x01",
+            "0x26bbec292e5080ecfd36f38ff1619ff35826b113#0x01",
+            "0x8867c12738f4ca3b530afe7efc7ac4ee1d286cbc#0x01",
+          ]
+        ]
+      );
+    });
+
+    it('Should handle unbalanced tree', async () => {
+      const testMerkleTree = new KVMerkleTree(dataMerkleTreeUnbalanced, poseidon);
+      expect(testMerkleTree.toTreeOptimizedFormatV1()).to.deep.equal([
+        [
+          '0x2599de212f83188569a379ffe2147ca3df175bc0ee2b1ce9fdb82066f88fa858'
+        ],
+        [
+          '0x276b4af9833d7147146fb55cf3f472e1b341c54f5ed998b1a5bf74e4268cd189',
+          '0x114c0913c6f09cc6d0f8ffd14949e6fd1988953c65ad4c3c2141b622ab1611fc'
+        ],
+        [
+          '0x15ef3d5b6527da67adf7a30d178927860dabc8a76cd840b92d92b09b0af0f561',
+          '0x152cf5dfbf5170e2e9509c6af23f634fa033a2fab132e9e94107a38e41411126',
+          '0x09ec577211202ca6df56b28945342d6e3222d218092c894559874793159d4b1a'
+        ],
+        [
+          '0x18ffd671bada5975dd7bee6ee7137080eaff4d72b403a6c2a80151784fe42844',
+          '0x0a9447a22b86b715b161fee505fb6ca01844306f91088a362b1b421457fc4527',
+          '0x0e450497e3990d28a13cd435c7e58f1c8ce56d251eec9d0a83a69f7341858391',
+          '0x28eda956ff99450b484fdaa7dbf4b51a7c343d9ee632689a451260f15a93e401',
+          '0x125c26450a57b09b9d73c1d926cbead7dd02d46a9551646f7a4b65a82a5203a9'
+        ],
+        [
+          '0x1399c190aeeddc5d8b2242ab17f97b42631bb0b7877e92b92c3be2ec5685a6a1',
+          '0x0928369eb910e972be21ce00310d5d3544718bb02979f49d13b704759f2d888e',
+          '0x086ead858855392bb66e138a5bb841e85aa2bae6cc4feacd41ea1c63c7ae173f',
+          '0x2678dfe108482a522d503d5359bede1b66c76dbd64d67c3d2900af5255159eac',
+          '0x193657a44557ca99dbc46fc5aecdaf44605f4dcefadf5e8da2adc1a0efa61e75',
+          '0x128c8677ec7439aee8e2f14dbfe82b814387efba198e555d107dc2e303bfd545',
+          '0x26cfc9854f70c932cb706b9c43b55da689cf51b03a7d25276c6d52c60a6458a3',
+          '0x08879f2a0d07e6924811d836069701ad94544267c2fbce63d2c078d39d57b2bb',
+          '0x20a6bfcd70ca3f6aa5990da8c7e0f8124db54c975dd44a6e86d0035e3ac9c11e',
+        ],
+        [    
+          "0xa76f290c490c70f2d816d286efe47fd64a35800b#0x01",
+          "0x0085560b24769dac4ed057f1b2ae40746aa9aab6#0x01",
+          "0x0294350d7cf2c145446358b6461c1610927b3a87#0x01",
+          "0x4f9c798553d207536b79e886b54f169264a7a155#0x01",
+          "0xa1b04c9cbb449d13c4fc29c7e6be1f810e6f35e9#0x01",
+          "0xad9fbd38281f615e7df3def2aad18935a9e0ffee#0x01",
+          "0x0783094aadfb8ae9915fd712d28664c8d7d26afa#0x01",
+          "0xe860947813c207abf9bf6722c49cda515d24971a#0x01",
+          "0x8bffc896d42f07776561a5814d6e4240950d6d3a#0x01",
+      ]
+      ]);
+    });
+
+
+    it('Should go from json to treeOptimizedFormatV1 and back to json', async () => {
+      accountMerkleTree = new KVMerkleTree(dataMerkleTreeBalanced, poseidon);
+      const originalJson = accountMerkleTree.toJson();
+      const treeOptimizedFormatV1 = accountMerkleTree.toTreeOptimizedFormatV1();
+      const fromTreeFormatV1MerkleTree = KVMerkleTree.fromTreeOptimizedFormatV1(treeOptimizedFormatV1);
+      expect(fromTreeFormatV1MerkleTree.toJson()).to.deep.equal(originalJson);
+    });
+
+    it('Should go from json to treeOptimizedFormatV1 and back to json with an unbalanced merkle tree', async () => {
+      accountMerkleTree = new KVMerkleTree(dataMerkleTreeUnbalanced, poseidon);
+      const originalJson = accountMerkleTree.toJson();
+      const treeOptimizedFormatV1 = accountMerkleTree.toTreeOptimizedFormatV1();
+      const fromTreeFormatV1MerkleTree = KVMerkleTree.fromTreeOptimizedFormatV1(treeOptimizedFormatV1);
+      expect(fromTreeFormatV1MerkleTree.toJson()).to.deep.equal(originalJson);
+    });
+
+    it('Should handle an other unbalanced tree', async () => {
+      const dataMerkleTreeUnbalanced2 = {
+        "0xa76f290c490c70f2d816d286efe47fd64a35800b": 1,
+        "0x0085560b24769dac4ed057f1b2ae40746aa9aab6": 1,
+        "0x0294350d7cf2c145446358b6461c1610927b3a87": 1,
+        "0x4f9c798553d207536b79e886b54f169264a7a155": 1,
+        "0xa1b04c9cbb449d13c4fc29c7e6be1f810e6f35e9": 1,
+        "0xad9fbd38281f615e7df3def2aad18935a9e0ffee": 1,
+      };
+      accountMerkleTree = new KVMerkleTree(dataMerkleTreeUnbalanced2, poseidon);
+      const originalJson = accountMerkleTree.toJson();
+      const treeOptimizedFormatV1 = accountMerkleTree.toTreeOptimizedFormatV1();
+      const fromTreeFormatV1MerkleTree = KVMerkleTree.fromTreeOptimizedFormatV1(treeOptimizedFormatV1);
+      expect(fromTreeFormatV1MerkleTree.toJson()).to.deep.equal(originalJson);
+    });
+
+    it('Should compress and uncompress trees data', async () => {
+      accountMerkleTree = new KVMerkleTree(dataMerkleTreeUnbalanced, poseidon);
+      const treeOptimizedFormatV1 = accountMerkleTree.toTreeOptimizedFormatV1();
+      const treeCompressed = accountMerkleTree.toCompressedTreeV1();
+      const unCompressedTree = KVMerkleTree.fromCompressedTreeV1(treeCompressed);
+      expect(treeOptimizedFormatV1).to.deep.equal(unCompressedTree.toTreeOptimizedFormatV1()); 
+    });
+  });
 })

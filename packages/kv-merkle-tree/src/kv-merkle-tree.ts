@@ -1,3 +1,4 @@
+import pako from 'pako';
 import { BigNumber } from "ethers";
 import { KV } from "./kv-store";
 import { HashFunction, MerkleTreeData, JsonMerkleTree, MerklePath } from "./types";
@@ -259,5 +260,146 @@ export class KVMerkleTree {
     if (!this.pointers.isEmpty()) json["pointers"] = this.pointers.store;
 
     return json;
+  }
+
+  public toTreeOptimizedFormatV1(): string[][] {
+    // Check that the tree has been initialized
+    if (!this.root) throw new Error("The Merkle tree is not yet initialized.");
+  
+    let treeLevels: string[][] = []; // This will hold the compressed tree
+    let currentLevelNodes: string[] = [this.root]; // Start with the root
+  
+    while (currentLevelNodes.length) {
+      let nextLevelNodes: string[] = [];
+      let currentLevelValues: string[] = [];
+  
+      for (const currentNode of currentLevelNodes) {
+        const node = this.tree.get(currentNode);
+  
+        currentLevelValues.push(currentNode);
+  
+        // Continue if there are no children
+        if(node.l === node.r) continue;
+  
+        // Add left and right children to the next level
+        if (node.l && !HASH_NULL_DICT[node.l]) {
+          nextLevelNodes.push(node.l);
+        }
+        if (node.r && node.r != node.l && !HASH_NULL_DICT[node.r]) {
+          nextLevelNodes.push(node.r);
+        }
+      }
+  
+      treeLevels.push(currentLevelValues); // Add the current level to the tree
+      currentLevelNodes = nextLevelNodes; // Move to the next level
+    }
+  
+    // Add an additional level for each data pointer
+    const leaves = treeLevels[treeLevels.length - 1]; 
+    let compressedPointers = new Array<string>(leaves.length);
+    const pointersDict = this.pointers.toDict();
+  
+    // Reverse the indexation of the leaves
+    let leavesToPointers: { [key: string]: string } = {};
+    for(const pointer of Object.keys(pointersDict)) {
+      leavesToPointers[pointersDict[pointer].leaf] = pointer;
+    }
+  
+    for(const i in leaves) {
+      const leaf = leaves[i];
+      compressedPointers[i] = `${leavesToPointers[leaf]}#${pointersDict[leavesToPointers[leaf]]?.value}`;
+    }
+    
+    treeLevels.push(compressedPointers); // Add the compressed pointers to the tree
+    return treeLevels; // Return the compressed tree
+  }
+
+
+  static fromTreeOptimizedFormatV1(treeLevels: string[][]): KVMerkleTree {
+    const treeHeight = treeLevels.length - 2;
+    const pointers: {
+      [key: string]: {
+        leaf: string, // hash(key, value);
+        value: string
+      }
+    } = {};
+    const tree: {
+      [nodeValue: string]: { 
+        p?: string, // Parent value
+        r?: string, // Right child value
+        l?: string // Left child value
+      }
+    } = {};
+
+    // Check that the input is valid
+    if (!treeLevels || treeLevels.length === 0) 
+      throw new Error("Invalid tree data.");
+  
+    let root = treeLevels[0][0]; // Root is the first element of the first level
+  
+    // Loop over tree levels and reconstruct the tree
+    for (let i = 0; i < treeLevels.length - 1; i++) {
+      let previousLevel = treeLevels[i - 1];
+      let currentLevel = treeLevels[i];
+      let nextLevel = treeLevels[i + 1];
+      const zeroHashForPreviousLevel = i != 0 ? Object.keys(HASH_NULL_DICT)[treeHeight+1-i] : null;
+      const zeroHashForCurrentLevel = Object.keys(HASH_NULL_DICT)[treeHeight-i];
+      const zeroHashForNextLevel = Object.keys(HASH_NULL_DICT)[treeHeight-1-i];
+  
+      for (let j = 0; j < 2**i; j++) {
+        let currentNode;
+        if(j < currentLevel.length) {
+          currentNode = currentLevel[j];
+        } else {
+          currentNode = zeroHashForCurrentLevel;
+        }
+        let parentNode; 
+        if(previousLevel) {
+          parentNode = previousLevel[Math.floor(j / 2)] ?? zeroHashForPreviousLevel;
+        }
+        let leftChild = nextLevel[j * 2] ?? zeroHashForNextLevel;
+        let rightChild = nextLevel[j * 2 + 1] ?? zeroHashForNextLevel;
+
+        let node = {};
+        if(parentNode) {
+            node["p"] = parentNode;
+        } 
+        if(leftChild && i < treeHeight) {
+          node["l"] = leftChild;
+        }
+        if(rightChild && i < treeHeight) {
+          node["r"] = rightChild;
+        }
+  
+        tree[currentNode] = node; // Add the node to the tree
+      }
+    }
+  
+    let formattedPointers = treeLevels[treeLevels.length - 1];
+    for (let i = 0; i < formattedPointers.length; i++) {
+      let [key, value] = formattedPointers[i].split("#");
+      pointers[key] = {
+        leaf: treeLevels[treeHeight][i],
+        value
+      };
+    }
+
+    const jsonMerkleTree: JsonMerkleTree = {
+      root,
+      height: treeHeight,
+      pointers,
+      tree
+    };
+  
+    return new KVMerkleTree(null, null, null, true, jsonMerkleTree);
+  }
+
+
+  public toCompressedTreeV1(): string {
+    return pako.deflate(JSON.stringify(this.toTreeOptimizedFormatV1()));
+  }
+
+  static fromCompressedTreeV1(compressedTree: string): KVMerkleTree {
+    return KVMerkleTree.fromTreeOptimizedFormatV1(JSON.parse(pako.inflate(compressedTree, { to: 'string' })));
   }
 }
